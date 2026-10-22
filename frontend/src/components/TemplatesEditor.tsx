@@ -118,6 +118,11 @@ const TemplatesEditor: React.FC<Props> = ({ open, onClose }) => {
   }
 
   const deleteTemplate = async (id: string) => {
+    if (!id) {
+      pushMessage('Invalid template ID', 'warning')
+      return
+    }
+
     const task = ffetch<unknown>(`${serverAddr}/api/v1/template/${id}`, {
       method: 'DELETE',
     })

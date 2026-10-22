@@ -36,8 +36,32 @@ func NewService(
 	lm *livestream.Monitor,
 ) *Service {
 	db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("templates"))
-		return err
+		b, err := tx.CreateBucketIfNotExists([]byte("templates"))
+		if err != nil {
+			return err
+		}
+		c := b.Cursor()
+		k, _ := c.First()
+		if k == nil {
+			defaultTemplates := []internal.CustomTemplate{
+				{
+					Id:      uuid.NewString(),
+					Name:    "default",
+					Content: "--no-mtime",
+				},
+				{
+					Id:      uuid.NewString(),
+					Name:    "audio only",
+					Content: "-x --audio-format mp3 --audio-quality 0 --embed-metadata --embed-thumbnail",
+				},
+			}
+			for _, dt := range defaultTemplates {
+				if bytes, err := json.Marshal(dt); err == nil {
+					_ = b.Put([]byte(dt.Id), bytes)
+				}
+			}
+		}
+		return nil
 	})
 	return &Service{
 		mdb: mdb,
@@ -106,13 +130,16 @@ func (s *Service) SetCookies(ctx context.Context, cookies string) error {
 }
 
 func (s *Service) SaveTemplate(ctx context.Context, template *internal.CustomTemplate) error {
+	if template.Id == "" {
+		template.Id = uuid.NewString()
+	}
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("templates"))
 		v, err := json.Marshal(template)
 		if err != nil {
 			return err
 		}
-		return b.Put([]byte(uuid.NewString()), v)
+		return b.Put([]byte(template.Id), v)
 	})
 }
 
@@ -130,6 +157,9 @@ func (s *Service) GetTemplates(ctx context.Context) (*[]internal.CustomTemplate,
 			if err := json.Unmarshal(v, &t); err != nil {
 				return err
 			}
+			if t.Id == "" {
+				t.Id = string(k)
+			}
 			templates = append(templates, t)
 			return nil
 		})
@@ -143,6 +173,9 @@ func (s *Service) GetTemplates(ctx context.Context) (*[]internal.CustomTemplate,
 }
 
 func (s *Service) UpdateTemplate(ctx context.Context, t *internal.CustomTemplate) (*internal.CustomTemplate, error) {
+	if t.Id == "" {
+		t.Id = uuid.NewString()
+	}
 	data, err := json.Marshal(t)
 	if err != nil {
 		return nil, err
@@ -164,8 +197,14 @@ func (s *Service) UpdateTemplate(ctx context.Context, t *internal.CustomTemplate
 }
 
 func (s *Service) DeleteTemplate(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("template id required")
+	}
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("templates"))
+		if b == nil {
+			return nil
+		}
 		return b.Delete([]byte(id))
 	})
 }

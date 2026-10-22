@@ -1,4 +1,4 @@
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
@@ -21,6 +21,12 @@ const TemplateTextField: FC<Props> = ({ template, onChange, onDelete }) => {
 
   const [editedTemplate, setEditedTemplate] = useState(template)
 
+  useEffect(() => {
+    setEditedTemplate(template)
+  }, [template])
+
+  const targetId = editedTemplate.id || template.id
+
   return (
     <Grid
       container
@@ -34,7 +40,7 @@ const TemplateTextField: FC<Props> = ({ template, onChange, onDelete }) => {
         <TextField
           fullWidth
           label={i18n.t('templatesEditorNameLabel')}
-          defaultValue={template.name}
+          value={editedTemplate.name}
           onChange={(e) => setEditedTemplate({ ...editedTemplate, name: e.target.value })}
         />
       </Grid>
@@ -42,18 +48,18 @@ const TemplateTextField: FC<Props> = ({ template, onChange, onDelete }) => {
         <TextField
           fullWidth
           label={i18n.t('templatesEditorContentLabel')}
-          defaultValue={template.content}
+          value={editedTemplate.content}
           onChange={(e) => setEditedTemplate({ ...editedTemplate, content: e.target.value })}
           InputProps={{
             endAdornment: <div style={{ display: 'flex', gap: 2 }}>
               <Button
                 variant='contained'
-                onClick={() => onChange(editedTemplate)}>
+                onClick={() => onChange({ ...editedTemplate, id: targetId })}>
                 <EditIcon />
               </Button>
               <Button
                 variant='contained'
-                onClick={() => onDelete(editedTemplate.id)}>
+                onClick={() => onDelete(targetId)}>
                 <DeleteIcon />
               </Button>
             </div>
