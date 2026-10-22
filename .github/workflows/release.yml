@@ -56,8 +56,9 @@ jobs:
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         with:
+          tag_name: ${{ inputs.tag_name != '' && inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v4.0.1-rc1') }}
           files: release-bin/*
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(inputs.tag_name, '-rc') || contains(github.ref_name, '-rc') || contains(inputs.tag_name, '-beta') || contains(github.ref_name, '-beta') || true }}
