@@ -10,12 +10,20 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func getJWTSecret() []byte {
+	sec := os.Getenv("JWT_SECRET")
+	if sec == "" {
+		sec = "yt-dlp-webui-default-secret-key"
+	}
+	return []byte(sec)
+}
+
 func validateToken(tokenValue string) error {
 	token, err := jwt.Parse(tokenValue, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		return err

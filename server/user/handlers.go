@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -31,13 +32,19 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		passwordHash = config.Instance().Authentication.PasswordHash
 	)
 
-	err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password))
-	if err != nil {
+	if username != req.Username {
 		http.Error(w, "invalid username or password", http.StatusBadRequest)
 		return
 	}
 
-	if username != req.Username {
+	var valid bool
+	if strings.HasPrefix(passwordHash, "$2a$") || strings.HasPrefix(passwordHash, "$2b$") || strings.HasPrefix(passwordHash, "$2y$") {
+		valid = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) == nil
+	} else {
+		valid = passwordHash != "" && passwordHash == req.Password
+	}
+
+	if !valid {
 		http.Error(w, "invalid username or password", http.StatusBadRequest)
 		return
 	}
@@ -45,11 +52,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	expiresAt := time.Now().Add(time.Hour * 24 * 30)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"expiresAt": expiresAt,
+		"expiresAt": expiresAt.Format(time.RFC3339),
 		"username":  req.Username,
 	})
 
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "yt-dlp-webui-default-secret-key"
+	}
+
+	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

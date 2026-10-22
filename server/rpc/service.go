@@ -198,16 +198,15 @@ func (s *Service) Clear(args string, killed *string) error {
 }
 
 // Removes completed processes
-func (s *Service) ClearCompleted(cleared *string) error {
+func (s *Service) ClearCompleted(args NoArgs, cleared *string) error {
 	var (
 		keys       = s.db.Keys()
 		removeFunc = func(d downloaders.Downloader) error {
-			defer s.db.Delete(d.GetId())
-
 			if !d.IsCompleted() {
 				return nil
 			}
 
+			defer s.db.Delete(d.GetId())
 			return d.Stop()
 		}
 	)
@@ -216,6 +215,10 @@ func (s *Service) ClearCompleted(cleared *string) error {
 		proc, err := s.db.Get(key)
 		if err != nil {
 			return err
+		}
+
+		if proc == nil {
+			continue
 		}
 
 		if err := removeFunc(proc); err != nil {

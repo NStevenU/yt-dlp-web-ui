@@ -139,21 +139,23 @@ const DownloadsTableView: React.FC = () => {
 
 
   function rowContent(_index: number, download: RPCResult) {
+    const isCompleted = download.progress.process_status === ProcessStatus.COMPLETED || download.progress.percentage === '-1'
+
     return (
       <>
         <TableCell>
-          {download.progress.percentage === '-1'
+          {isCompleted
             ? <DownloadDoneIcon color="primary" />
             : <DownloadIcon color="primary" />
           }
         </TableCell>
         <TableCell>{download.info.title}</TableCell>
-        <TableCell align="right">{formatSpeedMiB(download.progress.speed)}</TableCell>
+        <TableCell align="right">{isCompleted ? '' : formatSpeedMiB(download.progress.speed)}</TableCell>
         <TableCell align="right">
           <LinearProgressWithLabel
             sx={{ height: '16px' }}
             value={
-              download.progress.percentage === '-1'
+              isCompleted
                 ? 100
                 : Number(download.progress.percentage.replace('%', ''))
             }
@@ -162,7 +164,7 @@ const DownloadsTableView: React.FC = () => {
                 ? 'indeterminate'
                 : 'determinate'
             }
-            color={download.progress.percentage === '-1' ? 'primary' : 'primary'}
+            color="primary"
           />
         </TableCell>
         <TableCell align="right">{formatSize(download.info.filesize_approx ?? 0)}</TableCell>
@@ -175,10 +177,10 @@ const DownloadsTableView: React.FC = () => {
               size="small"
               onClick={() => stop(download)}
             >
-              {download.progress.percentage === '-1' ? <DeleteIcon /> : <StopCircleIcon />}
+              {isCompleted ? <DeleteIcon /> : <StopCircleIcon />}
 
             </IconButton>
-            {download.progress.percentage === '-1' &&
+            {isCompleted &&
               <>
                 <IconButton
                   size="small"

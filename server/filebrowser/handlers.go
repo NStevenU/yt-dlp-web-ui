@@ -118,11 +118,30 @@ func ListDownloaded(w http.ResponseWriter, r *http.Request) {
 
 type DeleteRequest = DirectoryEntry
 
+func isSubPath(base, target string) bool {
+	absBase, err1 := filepath.Abs(base)
+	absTarget, err2 := filepath.Abs(target)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absBase, absTarget)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return false
+	}
+	return true
+}
+
 func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	req := new(DeleteRequest)
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	root := config.Instance().Paths.DownloadPath
+	if !isSubPath(root, req.Path) {
+		http.Error(w, "forbidden: cannot delete files outside download path", http.StatusForbidden)
 		return
 	}
 
@@ -156,10 +175,9 @@ func SendFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filename := string(decoded)
-
 	root := config.Instance().Paths.DownloadPath
 
-	if strings.Contains(filepath.Dir(filepath.Clean(filename)), filepath.Clean(root)) {
+	if isSubPath(root, filename) {
 		http.ServeFile(w, r, filename)
 		return
 	}
@@ -188,10 +206,9 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filename := string(decoded)
-
 	root := config.Instance().Paths.DownloadPath
 
-	if strings.Contains(filepath.Dir(filepath.Clean(filename)), filepath.Clean(root)) {
+	if isSubPath(root, filename) {
 		w.Header().Add("Content-Disposition", "inline; filename=\""+filepath.Base(filename)+"\"")
 		w.Header().Set("Content-Type", "application/octet-stream")
 

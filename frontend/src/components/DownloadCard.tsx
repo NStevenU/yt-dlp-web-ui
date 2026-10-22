@@ -16,7 +16,7 @@ import {
 import { useAtomValue } from 'jotai'
 import { useCallback } from 'react'
 import { serverURL } from '../atoms/settings'
-import { RPCResult } from '../types'
+import { ProcessStatus, RPCResult } from '../types'
 import { base64URLEncode, ellipsis, formatSize, formatSpeedMiB, mapProcessStatus } from '../utils'
 import ResolutionBadge from './ResolutionBadge'
 import ClearIcon from '@mui/icons-material/Clear'
@@ -34,8 +34,8 @@ const DownloadCard: React.FC<Props> = ({ download, onStop, onCopy }) => {
   const serverAddr = useAtomValue(serverURL)
 
   const isCompleted = useCallback(
-    () => download.progress.percentage === '-1',
-    [download.progress.percentage]
+    () => download.progress.process_status === ProcessStatus.COMPLETED || download.progress.percentage === '-1',
+    [download.progress.process_status, download.progress.percentage]
   )
 
   const percentageToNumber = useCallback(

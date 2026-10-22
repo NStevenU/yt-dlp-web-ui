@@ -134,6 +134,7 @@ func (l *LiveStreamDownloader) Start() error {
 func (l *LiveStreamDownloader) Stop() error {
 	defer func() {
 		l.progress.Status = internal.StatusCompleted
+		l.progress.Percentage = "-1"
 		l.Complete()
 	}()
 	// yt-dlp uses multiple child process the parent process

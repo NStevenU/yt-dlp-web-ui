@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/marcopiovanello/yt-dlp-web-ui/v4/server/archive"
@@ -39,6 +40,7 @@ type CronTaskRunner struct {
 	errors chan error
 
 	running map[string]*monitorTask
+	mu      sync.RWMutex
 }
 
 func NewCronTaskRunner(mq *queue.MessageQueue, db *kv.Store) TaskRunner {
@@ -73,31 +75,36 @@ func (t *CronTaskRunner) Submit(subcription *domain.Subscription) error {
 // Handles the entire lifecylce of a monitor job.
 func (t *CronTaskRunner) Spawner(ctx context.Context) {
 	for req := range t.tasks {
-		t.running[req.Subscription.Id] = &req // keep track of the current job
+		taskCopy := req
+		t.mu.Lock()
+		t.running[taskCopy.Subscription.Id] = &taskCopy // keep track of the current job
+		t.mu.Unlock()
 
-		go func() {
-			ctx, cancel := context.WithCancel(ctx) // inject into the job's context a cancellation singal
-			fetcherEvents := t.doFetch(ctx, &req)  // retrieve the channel of events of the job
+		go func(task *monitorTask) {
+			taskCtx, cancel := context.WithCancel(ctx) // inject into the job's context a cancellation singal
+			fetcherEvents := t.doFetch(taskCtx, task)  // retrieve the channel of events of the job
 
 			for {
 				select {
-				case <-req.Done:
-					slog.Info("stopping cron job and removing schedule", slog.String("url", req.Subscription.URL))
+				case <-task.Done:
+					slog.Info("stopping cron job and removing schedule", slog.String("url", task.Subscription.URL))
 					cancel()
 					return
 				case <-fetcherEvents:
-					slog.Info("finished monitoring channel", slog.String("url", req.Subscription.URL))
+					slog.Info("finished monitoring channel", slog.String("url", task.Subscription.URL))
 				}
 			}
-		}()
+		}(&taskCopy)
 	}
 }
 
 // Stop a currently scheduled job
 func (t *CronTaskRunner) StopTask(id string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	task := t.running[id]
 	if task != nil {
-		t.running[id].Done <- struct{}{}
+		task.Done <- struct{}{}
 		delete(t.running, id)
 	}
 	return nil
@@ -154,7 +161,7 @@ func (t *CronTaskRunner) fetcher(ctx context.Context, req *monitorTask) time.Dur
 	d := downloaders.NewGenericDownload(
 		latestVideoURL,
 		append(
-			argsSplitterRe.FindAllString(req.Subscription.Params, 1),
+			argsSplitterRe.FindAllString(req.Subscription.Params, -1),
 			[]string{
 				"--break-on-existing",
 				"--download-archive",

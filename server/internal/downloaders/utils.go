@@ -83,6 +83,8 @@ var allowedFlags = map[string]bool{
 	"--embed-chapters":                 true,
 	"--embed-info-json":                true,
 	"--write-description":              true, // meta
+	"-x":                               true, // audio extraction
+	"--extract-audio":                  true,
 	"--audio-format":                   true, // safe post processing
 	"--audio-quality":                  true,
 	"--remux-video":                    true,

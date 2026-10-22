@@ -96,11 +96,12 @@ func (g *GenericDownloader) Start() error {
 		templateReplacer.Replace(downloadTemplate),
 		"--progress-template",
 		templateReplacer.Replace(postprocessTemplate),
-		"--js-runtimes",
-		config.Instance().Paths.JSRuntimePath,
-		"--remote-components",
-		"ejs:github",
 	}
+
+	if jsRuntime := config.Instance().Paths.JSRuntimePath; jsRuntime != "" {
+		baseParams = append(baseParams, "--js-runtimes", jsRuntime)
+	}
+	baseParams = append(baseParams, "--remote-components", "ejs:github")
 
 	// if user asked to manually override the output path...
 	if !(slices.Contains(g.Params, "-P") || slices.Contains(g.Params, "--paths")) {
@@ -108,9 +109,13 @@ func (g *GenericDownloader) Start() error {
 
 		rel, err := filepath.Rel(config.Instance().Paths.DownloadPath, outputPath)
 		if err != nil {
+			g.progress.Status = internal.StatusErrored
+			g.SetPending(false)
 			return err
 		}
 		if strings.HasPrefix(rel, "..") {
+			g.progress.Status = internal.StatusErrored
+			g.SetPending(false)
 			return errors.New(ErrIsNotSubPath)
 		}
 
@@ -131,26 +136,41 @@ func (g *GenericDownloader) Start() error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		slog.Error("failed to get a stdout pipe", slog.String("err", err.Error()))
-		panic(err)
+		g.progress.Status = internal.StatusErrored
+		g.SetPending(false)
+		cancel()
+		return err
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		slog.Error("failed to get a stderr pipe", slog.String("err", err.Error()))
-		panic(err)
+		g.progress.Status = internal.StatusErrored
+		g.SetPending(false)
+		cancel()
+		return err
 	}
 
 	if err := cmd.Start(); err != nil {
 		slog.Error("failed to start yt-dlp process", slog.String("err", err.Error()))
-		panic(err)
+		g.progress.Status = internal.StatusErrored
+		g.SetPending(false)
+		cancel()
+		return err
 	}
 
 	g.proc = cmd.Process
 
+	var isError bool
 	stop := func() {
 		stdout.Close()
 		g.Complete()
-		g.progress.Status = internal.StatusCompleted
+		if isError {
+			g.progress.Status = internal.StatusErrored
+		} else {
+			g.progress.Status = internal.StatusCompleted
+			g.progress.Percentage = "-1"
+		}
 		cancel()
 	}
 	defer stop()
@@ -162,12 +182,19 @@ func (g *GenericDownloader) Start() error {
 	go func() {
 		err := printYtDlpErrors(stderr, g.Id, g.URL)
 		if err != nil {
+			isError = true
 			stop()
 		}
 	}()
 
 	g.SetPending(false)
-	return cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		slog.Error("yt-dlp process exited with error", slog.String("id", g.Id), slog.String("url", g.URL), slog.Any("err", err))
+		isError = true
+		return err
+	}
+	return nil
 }
 
 func (g *GenericDownloader) Stop() error {

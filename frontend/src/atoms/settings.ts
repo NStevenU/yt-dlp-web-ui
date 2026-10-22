@@ -63,9 +63,13 @@ export const serverAddressState = atomWithStorage<string>(
   localStorage.getItem('server-addr') || window.location.hostname
 )
 
+const defaultPort = window.location.port !== ''
+  ? Number(window.location.port)
+  : (window.location.protocol === 'https:' ? 443 : 80)
+
 export const serverPortState = atomWithStorage<number>(
   'server-port',
-  Number(localStorage.getItem('server-port')) || Number(window.location.port)
+  Number(localStorage.getItem('server-port')) || defaultPort
 )
 
 export const latestCliArgumentsState = atomWithStorage<string>(
@@ -124,13 +128,12 @@ export const serverAddressAndPortState = atom((get) => {
       .replaceAll('"', '')    // XXX: atomWithStorage uses JSON.stringify to serialize
       .replaceAll('//', '/')  // which puts extra double quotes.
   }
-  if (get(servedFromReverseProxyState)) {
-    return `${get(serverAddressState)}`
-      .replaceAll('"', '')
+  const port = get(serverPortState)
+  if (get(servedFromReverseProxyState) || port === 80 || port === 443 || port === 0) {
+    return `${get(serverAddressState)}`.replaceAll('"', '')
   }
 
-  const sap = `${get(serverAddressState)}:${get(serverPortState)}`
-    .replaceAll('"', '')
+  const sap = `${get(serverAddressState)}:${port}`.replaceAll('"', '')
 
   return sap.endsWith('/') ? sap.slice(0, -1) : sap
 })
