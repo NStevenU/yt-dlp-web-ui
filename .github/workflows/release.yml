@@ -60,5 +60,4 @@ jobs:
         with:
           files: release-bin/*
           generate_release_notes: true
-          draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

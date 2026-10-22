@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export GH_INCLUDE_PRERELEASE="${GH_INCLUDE_PRERELEASE:-1}"
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: CrazyWolf13

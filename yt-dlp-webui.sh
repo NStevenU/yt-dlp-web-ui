@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export GH_INCLUDE_PRERELEASE="${GH_INCLUDE_PRERELEASE:-1}"
 COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/NStevenU/yt-dlp-web-ui/master}"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
